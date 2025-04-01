@@ -23,24 +23,29 @@ export function shouldSendReminder(relationship: Relationship): boolean {
 }
 
 export function getReminderMessage(relationship: Relationship): string {
-  const now = new Date();
-  const lastInteraction = relationship.interactions.length > 0
-    ? new Date(relationship.interactions[relationship.interactions.length - 1].date)
-    : null;
-
-  const daysSinceLastInteraction = lastInteraction
-    ? Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24))
+  const daysSinceLastInteraction = relationship.lastInteraction
+    ? Math.floor(
+        (new Date().getTime() - new Date(relationship.lastInteraction).getTime()) /
+          (1000 * 60 * 60 * 24)
+      )
     : 0;
 
-  const connectionScore = calculateConnectionScore(relationship);
-  const relationshipType = relationship.tags[0] || 'person';
+  const relationshipType = relationship.tags[0] || 'friend';
+  const daysText = daysSinceLastInteraction === 0
+    ? 'today'
+    : daysSinceLastInteraction === 1
+    ? 'yesterday'
+    : `${daysSinceLastInteraction} days ago`;
 
-  let baseMessage = `As a ${relationshipType}, `;
-  baseMessage += `It's been ${daysSinceLastInteraction === 0 ? 'today' : `${daysSinceLastInteraction} days`} since your last interaction with ${relationship.name}. `;
-  baseMessage += `Your connection score is ${connectionScore}. `;
-  baseMessage += getRelationshipSpecificMessage(relationshipType, connectionScore);
+  const baseMessage = `As a ${relationshipType}, It's been ${daysText} since your last interaction with ${
+    relationship.name
+  }`;
 
-  return baseMessage;
+  // Include the actual connection score in the message
+  return `${baseMessage}. Your connection score is ${relationship.connectionScore}. ${getRelationshipSpecificMessage(
+    relationshipType,
+    relationship.connectionScore
+  )}`;
 }
 
 function getRelationshipSpecificMessage(

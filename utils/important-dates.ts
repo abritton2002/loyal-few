@@ -9,30 +9,26 @@ export function calculateUpcomingDates(relationship: Relationship): ImportantDat
 
   return relationship.importantDates.filter(date => {
     const dateObj = new Date(date.date);
-    // For recurring dates, check if the next occurrence is within 30 days
+    
+    // For recurring dates, we need to normalize the year
     if (date.recurring) {
-      const year = now.getFullYear();
+      // Extract month and day
       const month = dateObj.getMonth();
       const day = dateObj.getDate();
       
-      // Check this year's date
-      const thisYearDate = new Date(year, month, day);
-      if (thisYearDate > now && thisYearDate <= thirtyDaysFromNow) {
-        return true;
-      }
+      // Create normalized dates for this year and next year
+      const thisYearDate = new Date();
+      thisYearDate.setMonth(month);
+      thisYearDate.setDate(day);
       
-      // Check next year's date
-      const nextYearDate = new Date(year + 1, month, day);
-      if (nextYearDate > now && nextYearDate <= thirtyDaysFromNow) {
-        return true;
-      }
-      
-      // For past recurring dates, check if next occurrence is within 30 days
+      // If this year's date has passed, check next year
       if (thisYearDate < now) {
+        const nextYearDate = new Date(thisYearDate);
+        nextYearDate.setFullYear(thisYearDate.getFullYear() + 1);
         return nextYearDate <= thirtyDaysFromNow;
       }
       
-      return false;
+      return thisYearDate <= thirtyDaysFromNow;
     }
     
     // For non-recurring dates, just check if they're in the future
@@ -105,33 +101,28 @@ export function shouldRemindDate(date: ImportantDate): boolean {
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // For recurring dates, check if the next occurrence is within 7 days
+  // For recurring dates, we need to normalize the year
   if (date.recurring) {
-    const year = now.getFullYear();
+    // Extract month and day
     const month = dateObj.getMonth();
     const day = dateObj.getDate();
     
-    // Check this year's date
-    const thisYearDate = new Date(year, month, day);
-    if (thisYearDate > now && thisYearDate <= sevenDaysFromNow) {
-      return true;
-    }
+    // Create normalized date for this year
+    const thisYearDate = new Date();
+    thisYearDate.setMonth(month);
+    thisYearDate.setDate(day);
     
-    // Check next year's date
-    const nextYearDate = new Date(year + 1, month, day);
-    if (nextYearDate > now && nextYearDate <= sevenDaysFromNow) {
-      return true;
-    }
-    
-    // For past recurring dates, check if next occurrence is within 7 days
+    // If this year's date has passed, check next year
     if (thisYearDate < now) {
+      const nextYearDate = new Date(thisYearDate);
+      nextYearDate.setFullYear(thisYearDate.getFullYear() + 1);
       return nextYearDate <= sevenDaysFromNow;
     }
     
-    return false;
+    return thisYearDate <= sevenDaysFromNow;
   }
   
   // For non-recurring dates, check if they're within 7 days in either direction
   return (dateObj > now && dateObj <= sevenDaysFromNow) || 
          (dateObj >= sevenDaysAgo && dateObj <= now);
-} 
+}

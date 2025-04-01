@@ -21,7 +21,15 @@ export function calculateConnectionScore(relationship: Relationship): number {
       return daysSinceInteraction <= 30;
     });
 
-    if (recentInteractions.length >= 4) {
+    // Check if the most recent interaction is older than 30 days
+    const oldestInteractionDate = new Date(relationship.interactions[0].date);
+    const daysSinceOldestInteraction = Math.floor(
+      (new Date().getTime() - oldestInteractionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    if (daysSinceOldestInteraction > 30) {
+      score -= 20; // Larger penalty for long periods without interaction
+    } else if (recentInteractions.length >= 4) {
       score += 15;
     } else if (recentInteractions.length >= 2) {
       score += 10;
@@ -30,7 +38,12 @@ export function calculateConnectionScore(relationship: Relationship): number {
     } else {
       score -= 10;
     }
+  } else {
+    // No interactions at all should have a significant penalty
+    score -= 15;
   }
+
+  // The rest of the function remains the same...
 
   // Emotional ratings impact
   if (relationship.emotionHistory.length > 0) {
