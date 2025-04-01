@@ -2,79 +2,64 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Users } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useRelationshipStore } from '@/store/relationship-store';
 import RelationshipCard from '@/components/RelationshipCard';
 import EmptyState from '@/components/EmptyState';
 import Button from '@/components/Button';
 import Colors from '@/constants/colors';
-import { useRouter } from 'expo-router';
+import { LucideIcon } from 'lucide-react-native';
 
 export default function RelationshipsScreen() {
   const router = useRouter();
   const { relationships } = useRelationshipStore();
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Filter relationships based on search query
-  const filteredRelationships = relationships.filter((relationship) => 
-    relationship.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    relationship.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-  
-  // Sort relationships by name
-  const sortedRelationships = [...filteredRelationships].sort((a, b) => 
-    a.name.localeCompare(b.name)
-  );
-  
-  const navigateToAddRelationship = () => {
-    router.push('/add-relationship');
-  };
-  
+
+  const filteredRelationships = relationships
+    .filter(relationship => {
+      const query = searchQuery.toLowerCase();
+      return (
+        relationship.name.toLowerCase().includes(query) ||
+        relationship.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Relationships</Text>
-        
-        <View style={styles.searchContainer}>
-          <Search size={18} color={Colors.dark.subtext} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or tag..."
-            placeholderTextColor={Colors.dark.subtext}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
       </View>
-      
-      {relationships.length === 0 ? (
+
+      <View style={styles.searchContainer}>
+        <Search size={20} color={Colors.dark.text} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search relationships..."
+          placeholderTextColor={Colors.dark.subtext}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      {filteredRelationships.length === 0 ? (
         <EmptyState
-          icon={<Users size={60} color={Colors.dark.primary} />}
+          icon={<View><Users size={48} color={Colors.dark.text} /></View>}
           title="No relationships yet"
-          message="Add your first relationship to start tracking your connections."
+          message="Start by adding your first relationship"
           action={
-            <Button 
-              title="Add Relationship" 
-              onPress={navigateToAddRelationship}
-              icon={<UserPlus size={18} color={Colors.dark.text} />}
+            <Button
+              title="Add Relationship"
+              onPress={() => router.push('/add-relationship')}
             />
           }
         />
       ) : (
         <FlatList
-          data={sortedRelationships}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RelationshipCard relationship={item} />
-          )}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptySearch}>
-              <Text style={styles.emptySearchText}>
-                No relationships found matching "{searchQuery}"
-              </Text>
-            </View>
-          }
+          data={filteredRelationships}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <RelationshipCard relationship={item} />}
+          contentContainerStyle={styles.list}
         />
       )}
     </SafeAreaView>
@@ -88,42 +73,29 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    paddingBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: Colors.dark.text,
-    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.dark.card,
-    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 16,
     paddingHorizontal: 12,
-    marginBottom: 8,
-  },
-  searchIcon: {
-    marginRight: 8,
+    borderRadius: 8,
+    height: 40,
   },
   searchInput: {
     flex: 1,
-    height: 44,
+    marginLeft: 8,
     color: Colors.dark.text,
     fontSize: 16,
   },
-  listContent: {
+  list: {
     padding: 16,
-    paddingTop: 8,
-  },
-  emptySearch: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptySearchText: {
-    color: Colors.dark.subtext,
-    fontSize: 16,
-    textAlign: 'center',
   },
 });

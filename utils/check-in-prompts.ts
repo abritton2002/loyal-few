@@ -1,111 +1,156 @@
-import { Relationship, RelationshipTag } from '@/types/relationship';
+import { Relationship } from '@/types/relationship';
 
-interface CheckInPrompt {
+export type CheckInPrompt = {
   text: string;
   type: 'general' | 'specific' | 'emotional' | 'goal';
-}
+};
 
 // Generate personalized check-in prompts based on relationship data
 export function generateCheckInPrompts(relationship: Relationship): CheckInPrompt[] {
   const prompts: CheckInPrompt[] = [];
-  const { name, tags, lastInteraction, goals, emotionHistory } = relationship;
+  const { name, tags, lastInteraction, goals, emotionHistory, connectionScore } = relationship;
   
-  // General prompts based on relationship type
-  if (tags.includes('spouse') || tags.includes('partner')) {
-    prompts.push({ 
-      text: `How is ${name} feeling today?`, 
-      type: 'emotional' 
+  // Get days since last interaction
+  const daysSinceLastInteraction = lastInteraction 
+    ? Math.floor((new Date().getTime() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // Get recent emotional trend
+  const recentEmotions = emotionHistory
+    .slice(-3)
+    .map(r => r.rating);
+  const emotionalTrend = recentEmotions.length > 0
+    ? recentEmotions.reduce((sum, rating) => sum + rating, 0) / recentEmotions.length
+    : null;
+
+  // Get upcoming important dates
+  const upcomingDates = relationship.importantDates.filter(date => {
+    const eventDate = new Date(date.date);
+    if (date.recurring) {
+      eventDate.setFullYear(new Date().getFullYear());
+      if (eventDate < new Date()) {
+        eventDate.setFullYear(new Date().getFullYear() + 1);
+      }
+    }
+    return eventDate >= new Date() && eventDate <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  });
+
+  // Connection score based prompts
+  if (connectionScore < 40) {
+    prompts.push({
+      text: `Your connection with ${name} needs attention. What's one small way you can reach out today?`,
+      type: 'specific'
     });
-    prompts.push({ 
-      text: `What's something you appreciate about ${name}?`, 
-      type: 'emotional' 
+  } else if (connectionScore > 80) {
+    prompts.push({
+      text: `You're doing great staying connected with ${name}! What's something you appreciate about this relationship?`,
+      type: 'emotional'
+    });
+  }
+
+  // Time-based prompts
+  if (daysSinceLastInteraction !== null) {
+    if (daysSinceLastInteraction > 14) {
+      prompts.push({
+        text: `It's been ${daysSinceLastInteraction} days since you connected with ${name}. Want to schedule a catch-up?`,
+        type: 'specific'
+      });
+    } else if (daysSinceLastInteraction < 3) {
+      prompts.push({
+        text: `You recently connected with ${name}. How did that interaction make you feel?`,
+        type: 'emotional'
+      });
+    }
+  }
+
+  // Emotional trend based prompts
+  if (emotionalTrend !== null) {
+    if (emotionalTrend < 5) {
+      prompts.push({
+        text: `Your recent interactions with ${name} have been challenging. What's one thing you can do to improve the connection?`,
+        type: 'emotional'
+      });
+    } else if (emotionalTrend > 8) {
+      prompts.push({
+        text: `Your connection with ${name} is thriving! What's working well?`,
+        type: 'emotional'
+      });
+    }
+  }
+
+  // Goal-based prompts
+  const incompleteGoals = goals.filter(goal => !goal.completed);
+  if (incompleteGoals.length > 0) {
+    const nextGoal = incompleteGoals[0];
+    prompts.push({
+      text: `You have an open goal with ${name}: "${nextGoal.title}". Want to make progress on it?`,
+      type: 'goal'
+    });
+  }
+
+  // Upcoming dates prompts
+  if (upcomingDates.length > 0) {
+    const nextDate = upcomingDates[0];
+    const daysUntil = Math.floor(
+      (new Date(nextDate.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    if (daysUntil <= 7) {
+      prompts.push({
+        text: `${name}'s ${nextDate.title} is coming up in ${daysUntil} days. Want to plan something special?`,
+        type: 'specific'
+      });
+    }
+  }
+
+  // Relationship type specific prompts
+  if (tags.includes('spouse') || tags.includes('partner')) {
+    prompts.push({
+      text: `What's one thing you love about your relationship with ${name}?`,
+      type: 'emotional'
+    });
+    prompts.push({
+      text: `How can you show ${name} you care today?`,
+      type: 'specific'
     });
   }
   
   if (tags.includes('family')) {
-    prompts.push({ 
-      text: `When did you last have a meaningful conversation with ${name}?`, 
-      type: 'general' 
+    prompts.push({
+      text: `What's a favorite memory you share with ${name}?`,
+      type: 'emotional'
     });
   }
   
   if (tags.includes('friend')) {
-    prompts.push({ 
-      text: `What activities do you and ${name} enjoy doing together?`, 
-      type: 'general' 
+    prompts.push({
+      text: `What activities do you and ${name} enjoy doing together?`,
+      type: 'general'
     });
   }
   
   if (tags.includes('colleague') || tags.includes('business')) {
-    prompts.push({ 
-      text: `What professional goals does ${name} have right now?`, 
-      type: 'specific' 
+    prompts.push({
+      text: `What professional goals does ${name} have right now?`,
+      type: 'specific'
     });
   }
   
   if (tags.includes('mentor')) {
-    prompts.push({ 
-      text: `What advice from ${name} have you applied recently?`, 
-      type: 'specific' 
+    prompts.push({
+      text: `What advice from ${name} have you applied recently?`,
+      type: 'specific'
     });
   }
-  
-  // Time-based prompts
-  if (lastInteraction) {
-    const daysSinceLastInteraction = Math.floor(
-      (new Date().getTime() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    
-    if (daysSinceLastInteraction > 14) {
-      prompts.push({ 
-        text: `It's been ${daysSinceLastInteraction} days since you connected with ${name}. What's a good way to reach out?`, 
-        type: 'specific' 
-      });
-    }
-  }
-  
-  // Goal-based prompts
-  const incompleteGoals = goals.filter(goal => !goal.completed);
-  if (incompleteGoals.length > 0) {
-    const randomGoal = incompleteGoals[Math.floor(Math.random() * incompleteGoals.length)];
-    prompts.push({ 
-      text: `You have a goal with ${name}: "${randomGoal.title}". What progress have you made?`, 
-      type: 'goal' 
-    });
-  }
-  
-  // Emotional check-in prompts
-  if (emotionHistory.length > 0) {
-    const latestEmotion = emotionHistory[emotionHistory.length - 1];
-    if (latestEmotion.rating < 5) {
-      prompts.push({ 
-        text: `Last time you noted your connection with ${name} wasn't great. Has anything improved?`, 
-        type: 'emotional' 
-      });
-    }
-  }
-  
-  // Add some universal prompts
-  prompts.push({ 
-    text: `What's something important happening in ${name}'s life right now?`, 
-    type: 'general' 
-  });
-  
-  prompts.push({ 
-    text: `What's one thing you could do to strengthen your relationship with ${name}?`, 
-    type: 'general' 
-  });
-  
-  // Return 3 random prompts
-  return shuffleArray(prompts).slice(0, 3);
-}
 
-// Fisher-Yates shuffle algorithm
-function shuffleArray<T>(array: T[]): T[] {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  // Ensure we have at least 3 prompts
+  while (prompts.length < 3) {
+    prompts.push({
+      text: `How can you strengthen your connection with ${name} today?`,
+      type: 'general'
+    });
   }
-  return newArray;
+
+  // Return 3 random prompts
+  return prompts.sort(() => Math.random() - 0.5).slice(0, 3);
 }
