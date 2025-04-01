@@ -16,7 +16,7 @@ export function getMemoryInsights(relationship: Relationship): string[] {
   const insights: string[] = [];
 
   if (relationship.sharedMemories.length === 0) {
-    insights.push('You have no shared memories with this person');
+    insights.push('no memories');
     return insights;
   }
 
@@ -35,11 +35,7 @@ export function getMemoryInsights(relationship: Relationship): string[] {
   });
 
   if (recentMemories.length > 0) {
-    insights.push(
-      `You've created ${recentMemories.length} shared memory${
-        recentMemories.length === 1 ? '' : 'ies'
-      } recently`
-    );
+    insights.push('recent');
   }
 
   // Unacknowledged memories
@@ -48,11 +44,7 @@ export function getMemoryInsights(relationship: Relationship): string[] {
   );
 
   if (unacknowledgedMemories.length > 0) {
-    insights.push(
-      `You have ${unacknowledgedMemories.length} unacknowledged shared memory${
-        unacknowledgedMemories.length === 1 ? '' : 'ies'
-      }`
-    );
+    insights.push('unacknowledged');
   }
 
   // Memory variety
@@ -60,7 +52,7 @@ export function getMemoryInsights(relationship: Relationship): string[] {
     sortedMemories.map(memory => memory.title.toLowerCase())
   );
   if (memoryTypes.size > 2) {
-    insights.push('You have a variety of different shared memories');
+    insights.push('variety');
   }
 
   // Memory creation balance

@@ -4,6 +4,13 @@ import { render, fireEvent } from '@testing-library/react-native';
 import RelationshipCard from '@/components/RelationshipCard';
 import { Relationship } from '@/types/relationship';
 
+// Mock expo-router
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: jest.fn()
+  })
+}));
+
 const mockRelationship: Relationship = {
   id: '1',
   name: 'John Doe',
@@ -49,7 +56,6 @@ describe('RelationshipCard', () => {
     );
 
     fireEvent.press(getByTestId('relationship-card'));
-    // Note: We can't test the navigation directly as it uses expo-router
-    // which requires a navigation context
+    // The navigation is now mocked, so the test should pass
   });
 }); 

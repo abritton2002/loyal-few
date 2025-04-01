@@ -1,4 +1,5 @@
 import { Relationship, RelationshipTag } from '@/types/relationship';
+import { calculateConnectionScore } from './connection-score';
 
 export function calculateNextReminderDate(
   currentDate: Date,
@@ -22,30 +23,24 @@ export function shouldSendReminder(relationship: Relationship): boolean {
 }
 
 export function getReminderMessage(relationship: Relationship): string {
-  const daysSinceLastInteraction = relationship.lastInteraction
-    ? Math.floor(
-        (new Date().getTime() - new Date(relationship.lastInteraction).getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
+  const now = new Date();
+  const lastInteraction = relationship.interactions.length > 0
+    ? new Date(relationship.interactions[relationship.interactions.length - 1].date)
+    : null;
+
+  const daysSinceLastInteraction = lastInteraction
+    ? Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const relationshipType = relationship.tags[0] || 'friend';
-  const daysText = daysSinceLastInteraction === 0
-    ? 'today'
-    : daysSinceLastInteraction === 1
-    ? 'yesterday'
-    : `${daysSinceLastInteraction} days ago`;
+  const connectionScore = calculateConnectionScore(relationship);
+  const relationshipType = relationship.tags[0] || 'person';
 
-  const baseMessage = `It's been ${daysText} since your last interaction with ${
-    relationship.name
-  }`;
+  let baseMessage = `As a ${relationshipType}, `;
+  baseMessage += `It's been ${daysSinceLastInteraction === 0 ? 'today' : `${daysSinceLastInteraction} days`} since your last interaction with ${relationship.name}. `;
+  baseMessage += `Your connection score is ${connectionScore}. `;
+  baseMessage += getRelationshipSpecificMessage(relationshipType, connectionScore);
 
-  const relationshipSpecificMessage = getRelationshipSpecificMessage(
-    relationshipType,
-    relationship.connectionScore
-  );
-
-  return `${baseMessage}. ${relationshipSpecificMessage}`;
+  return baseMessage;
 }
 
 function getRelationshipSpecificMessage(
@@ -53,10 +48,10 @@ function getRelationshipSpecificMessage(
   connectionScore: number
 ): string {
   const scoreMessage = connectionScore >= 80
-    ? 'Your connection is strong'
+    ? `Your connection is strong (${connectionScore})`
     : connectionScore >= 60
-    ? 'Your connection is good'
-    : 'Consider strengthening your connection';
+    ? `Your connection is good (${connectionScore})`
+    : `Your connection needs attention (${connectionScore})`;
 
   switch (relationshipType) {
     case 'spouse':

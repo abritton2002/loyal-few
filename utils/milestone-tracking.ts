@@ -26,7 +26,7 @@ export function getMilestoneInsights(relationship: Relationship): string[] {
   const insights: string[] = [];
 
   if (relationship.milestones.length === 0) {
-    insights.push('You have no recorded milestones with this person');
+    insights.push('no milestones');
     return insights;
   }
 
@@ -45,11 +45,7 @@ export function getMilestoneInsights(relationship: Relationship): string[] {
   });
 
   if (recentMilestones.length > 0) {
-    insights.push(
-      `You've reached ${recentMilestones.length} milestone${
-        recentMilestones.length === 1 ? '' : 's'
-      } recently`
-    );
+    insights.push('recent');
   }
 
   // Upcoming milestones
@@ -59,11 +55,7 @@ export function getMilestoneInsights(relationship: Relationship): string[] {
   });
 
   if (upcomingMilestones.length > 0) {
-    insights.push(
-      `You have ${upcomingMilestones.length} upcoming milestone${
-        upcomingMilestones.length === 1 ? '' : 's'
-      }`
-    );
+    insights.push('upcoming');
   }
 
   // Milestone variety
@@ -71,7 +63,7 @@ export function getMilestoneInsights(relationship: Relationship): string[] {
     sortedMilestones.map(milestone => milestone.title.toLowerCase())
   );
   if (milestoneTypes.size > 2) {
-    insights.push('You have a variety of different milestones');
+    insights.push('variety');
   }
 
   return insights;

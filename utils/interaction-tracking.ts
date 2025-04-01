@@ -38,43 +38,49 @@ export function getInteractionInsights(relationship: Relationship): string[] {
   const insights: string[] = [];
 
   if (relationship.interactions.length === 0) {
-    insights.push('You have no recorded interactions with this person');
+    insights.push('no interactions');
     return insights;
   }
 
-  const frequency = calculateInteractionFrequency(relationship);
   const now = new Date();
-  const lastInteraction = new Date(
-    relationship.interactions[relationship.interactions.length - 1].date
-  );
-  const daysSinceLastInteraction = Math.floor(
-    (now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24)
+  const sortedInteractions = [...relationship.interactions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  // Frequency insights
-  if (frequency <= 7) {
-    insights.push('You maintain regular contact with this person');
-  } else if (frequency <= 14) {
-    insights.push('You have moderate contact frequency');
-  } else {
-    insights.push('Your interactions are infrequent');
+  // Recent interactions
+  const recentInteractions = sortedInteractions.filter(interaction => {
+    const interactionDate = new Date(interaction.date);
+    const daysSinceInteraction = Math.floor(
+      (now.getTime() - interactionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceInteraction <= 7;
+  });
+
+  if (recentInteractions.length > 0) {
+    insights.push('recent');
   }
 
-  // Recency insights
-  if (daysSinceLastInteraction <= 3) {
-    insights.push('You have recently interacted with this person');
-  } else if (daysSinceLastInteraction <= 7) {
-    insights.push('It has been about a week since your last interaction');
-  } else {
-    insights.push(`It has been ${daysSinceLastInteraction} days since your last interaction`);
+  // Regular interactions (4 or more in the last 30 days)
+  const regularInteractions = sortedInteractions.filter(interaction => {
+    const interactionDate = new Date(interaction.date);
+    const daysSinceInteraction = Math.floor(
+      (now.getTime() - interactionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceInteraction <= 30;
+  });
+
+  if (regularInteractions.length >= 4) {
+    insights.push('regular');
+  } else if (regularInteractions.length < 4) {
+    insights.push('infrequent');
   }
 
-  // Interaction type variety
-  const interactionTypes = new Set(
-    relationship.interactions.map(interaction => interaction.type)
+  // Interaction variety (3 or more different types in the last 30 days)
+  const recentInteractionTypes = new Set(
+    regularInteractions.map(interaction => interaction.type.toLowerCase())
   );
-  if (interactionTypes.size > 2) {
-    insights.push('You use a variety of communication methods');
+  if (recentInteractionTypes.size >= 3) {
+    insights.push('variety');
   }
 
   return insights;

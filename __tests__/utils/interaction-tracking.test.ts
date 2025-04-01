@@ -96,6 +96,18 @@ describe('Interaction Tracking Utils', () => {
           date: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
           type: 'message' as InteractionType,
           notes: 'Test interaction 2'
+        },
+        {
+          id: '3',
+          date: new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+          type: 'message' as InteractionType,
+          notes: 'Test interaction 3'
+        },
+        {
+          id: '4',
+          date: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+          type: 'message' as InteractionType,
+          notes: 'Test interaction 4'
         }
       ];
 
@@ -147,6 +159,12 @@ describe('Interaction Tracking Utils', () => {
           date: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
           type: 'meeting' as InteractionType,
           notes: 'Test meeting'
+        },
+        {
+          id: '3',
+          date: new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+          type: 'message' as InteractionType,
+          notes: 'Test message'
         }
       ];
 

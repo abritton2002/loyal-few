@@ -11,7 +11,7 @@ export function calculateUpcomingDates(relationship: Relationship): ImportantDat
     const dateObj = new Date(date.date);
     // For recurring dates, check if the next occurrence is within 30 days
     if (date.recurring) {
-      const year = dateObj.getFullYear();
+      const year = now.getFullYear();
       const month = dateObj.getMonth();
       const day = dateObj.getDate();
       
@@ -23,7 +23,16 @@ export function calculateUpcomingDates(relationship: Relationship): ImportantDat
       
       // Check next year's date
       const nextYearDate = new Date(year + 1, month, day);
-      return nextYearDate > now && nextYearDate <= thirtyDaysFromNow;
+      if (nextYearDate > now && nextYearDate <= thirtyDaysFromNow) {
+        return true;
+      }
+      
+      // For past recurring dates, check if next occurrence is within 30 days
+      if (thisYearDate < now) {
+        return nextYearDate <= thirtyDaysFromNow;
+      }
+      
+      return false;
     }
     
     // For non-recurring dates, just check if they're in the future
@@ -41,18 +50,31 @@ export function getDateInsights(relationship: Relationship): string[] {
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   if (relationship.importantDates.length === 0) {
-    insights.push('No important dates recorded');
+    insights.push('no dates');
     return insights;
   }
 
   // Check for upcoming dates
   const upcomingDates = relationship.importantDates.filter(date => {
     const dateObj = new Date(date.date);
+    if (date.recurring) {
+      const year = dateObj.getFullYear();
+      const month = dateObj.getMonth();
+      const day = dateObj.getDate();
+      
+      const thisYearDate = new Date(year, month, day);
+      if (thisYearDate > now && thisYearDate <= thirtyDaysFromNow) {
+        return true;
+      }
+      
+      const nextYearDate = new Date(year + 1, month, day);
+      return nextYearDate > now && nextYearDate <= thirtyDaysFromNow;
+    }
     return dateObj > now && dateObj <= thirtyDaysFromNow;
   });
 
   if (upcomingDates.length > 0) {
-    insights.push(`${upcomingDates.length} upcoming important date${upcomingDates.length > 1 ? 's' : ''}`);
+    insights.push('upcoming');
   }
 
   // Check for recent dates
@@ -62,13 +84,13 @@ export function getDateInsights(relationship: Relationship): string[] {
   });
 
   if (recentDates.length > 0) {
-    insights.push(`${recentDates.length} recent important date${recentDates.length > 1 ? 's' : ''}`);
+    insights.push('recent');
   }
 
   // Check for date variety
   const dateTypes = new Set(relationship.importantDates.map(date => date.type));
   if (dateTypes.size >= 3) {
-    insights.push('Good variety of important dates');
+    insights.push('variety');
   }
 
   return insights;
@@ -85,7 +107,7 @@ export function shouldRemindDate(date: ImportantDate): boolean {
 
   // For recurring dates, check if the next occurrence is within 7 days
   if (date.recurring) {
-    const year = dateObj.getFullYear();
+    const year = now.getFullYear();
     const month = dateObj.getMonth();
     const day = dateObj.getDate();
     
@@ -97,7 +119,16 @@ export function shouldRemindDate(date: ImportantDate): boolean {
     
     // Check next year's date
     const nextYearDate = new Date(year + 1, month, day);
-    return nextYearDate > now && nextYearDate <= sevenDaysFromNow;
+    if (nextYearDate > now && nextYearDate <= sevenDaysFromNow) {
+      return true;
+    }
+    
+    // For past recurring dates, check if next occurrence is within 7 days
+    if (thisYearDate < now) {
+      return nextYearDate <= sevenDaysFromNow;
+    }
+    
+    return false;
   }
   
   // For non-recurring dates, check if they're within 7 days in either direction

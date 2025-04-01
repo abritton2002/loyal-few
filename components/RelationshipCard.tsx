@@ -32,6 +32,7 @@ export default function RelationshipCard({ relationship }: RelationshipCardProps
         pressed && styles.pressed
       ]}
       onPress={handlePress}
+      testID="relationship-card"
     >
       <View style={styles.avatarContainer}>
         {avatar ? (
@@ -61,7 +62,7 @@ export default function RelationshipCard({ relationship }: RelationshipCardProps
         </View>
       </View>
       
-      <View style={styles.scoreContainer}>
+      <View style={styles.scoreContainer} testID="connection-score">
         <ConnectionScoreRing score={connectionScore} size={60} showLabel={false} />
       </View>
     </Pressable>

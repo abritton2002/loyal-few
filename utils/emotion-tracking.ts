@@ -31,7 +31,7 @@ export function getEmotionInsights(emotionHistory: EmotionEntry[]): string[] {
   const insights: string[] = [];
 
   if (emotionHistory.length < 3) {
-    insights.push('Insufficient data to generate insights');
+    insights.push('insufficient data');
     return insights;
   }
 
@@ -53,17 +53,17 @@ export function getEmotionInsights(emotionHistory: EmotionEntry[]): string[] {
 
   // Generate insights based on statistics
   if (avgRating >= 8) {
-    insights.push('Your relationship is consistently positive');
+    insights.push('consistently positive');
   } else if (avgRating <= 3) {
     insights.push('Your relationship may need attention');
   }
 
   if (stdDev > 2) {
-    insights.push('Your emotional connection is volatile');
+    insights.push('volatile');
   }
 
   if (trend > 0.5) {
-    insights.push('Your relationship is improving');
+    insights.push('improving');
   } else if (trend < -0.5) {
     insights.push('Your relationship may be declining');
   }
