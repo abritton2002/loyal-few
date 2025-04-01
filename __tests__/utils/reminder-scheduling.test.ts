@@ -4,7 +4,7 @@ import {
   shouldSendReminder,
   getReminderMessage
 } from '@/utils/reminder-scheduling';
-import { Relationship } from '@/types/relationship';
+import { Relationship, RelationshipTag } from '@/types/relationship';
 
 describe('Reminder Scheduling Utils', () => {
   const baseRelationship: Relationship = {
@@ -56,6 +56,39 @@ describe('Reminder Scheduling Utils', () => {
       expect(weeklyDate.getDate()).toBe(weeklyExpected.getDate());
       expect(biweeklyDate.getDate()).toBe(biweeklyExpected.getDate());
     });
+
+    // Additional tests for calculateNextReminderDate
+    it('handles zero days frequency', () => {
+      const now = new Date();
+      const nextDate = calculateNextReminderDate(now, 0);
+      
+      // Should be same day
+      expect(nextDate.getDate()).toBe(now.getDate());
+      expect(nextDate.getMonth()).toBe(now.getMonth());
+      expect(nextDate.getFullYear()).toBe(now.getFullYear());
+    });
+    
+    it('handles negative days frequency', () => {
+      const now = new Date();
+      const nextDate = calculateNextReminderDate(now, -1);
+      
+      // Should be yesterday
+      const expectedDate = new Date(now);
+      expectedDate.setDate(expectedDate.getDate() - 1);
+      
+      expect(nextDate.getDate()).toBe(expectedDate.getDate());
+    });
+    
+    it('handles large day count', () => {
+      const now = new Date();
+      const nextDate = calculateNextReminderDate(now, 365);
+      
+      // Should be 365 days from now
+      const expectedDate = new Date(now);
+      expectedDate.setDate(expectedDate.getDate() + 365);
+      
+      expect(nextDate.getFullYear()).toBe(expectedDate.getFullYear());
+    });
   });
 
   describe('shouldSendReminder', () => {
@@ -90,6 +123,79 @@ describe('Reminder Scheduling Utils', () => {
         ...baseRelationship,
         lastInteraction: undefined,
         reminderFrequency: 7
+      };
+      
+      expect(shouldSendReminder(relationship)).toBe(true);
+    });
+
+    // Additional tests for shouldSendReminder
+    it('handles interaction exactly at the reminder frequency boundary', () => {
+      const borderlineDate = new Date();
+      borderlineDate.setDate(borderlineDate.getDate() - 7); // Exactly 7 days ago
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: borderlineDate.toISOString(),
+        reminderFrequency: 7
+      };
+      
+      expect(shouldSendReminder(relationship)).toBe(true);
+    });
+    
+    it('handles different reminder frequencies', () => {
+      const date = new Date();
+      date.setDate(date.getDate() - 10); // 10 days ago
+      
+      // Should trigger for weekly but not bi-weekly
+      const weeklyRelationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: date.toISOString(),
+        reminderFrequency: 7
+      };
+      
+      const biweeklyRelationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: date.toISOString(),
+        reminderFrequency: 14
+      };
+      
+      expect(shouldSendReminder(weeklyRelationship)).toBe(true);
+      expect(shouldSendReminder(biweeklyRelationship)).toBe(false);
+    });
+    
+    it('handles very frequent reminders', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1); // 1 day ago
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: yesterday.toISOString(),
+        reminderFrequency: 1
+      };
+      
+      expect(shouldSendReminder(relationship)).toBe(true);
+    });
+    
+    it('handles very infrequent reminders', () => {
+      const longAgo = new Date();
+      longAgo.setDate(longAgo.getDate() - 29); // 29 days ago
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: longAgo.toISOString(),
+        reminderFrequency: 30
+      };
+      
+      expect(shouldSendReminder(relationship)).toBe(false);
+    });
+    
+    it('handles zero reminder frequency', () => {
+      const date = new Date();
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: date.toISOString(),
+        reminderFrequency: 0
       };
       
       expect(shouldSendReminder(relationship)).toBe(true);
@@ -137,5 +243,90 @@ describe('Reminder Scheduling Utils', () => {
       const message = getReminderMessage(relationship);
       expect(message).toContain('10 days');
     });
+
+    // Additional tests for getReminderMessage
+    it('handles all relationship types', () => {
+      const relationshipTypes: RelationshipTag[] = [
+        'spouse', 'partner', 'family', 'friend', 'colleague', 'mentor', 'mentee', 'business'
+      ];
+      
+      for (const type of relationshipTypes) {
+        const relationship: Relationship = {
+          ...baseRelationship,
+          tags: [type]
+        };
+        
+        const message = getReminderMessage(relationship);
+        expect(message).toContain(type);
+      }
+    });
+    
+    it('handles interaction from today', () => {
+      const today = new Date();
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: today.toISOString()
+      };
+      
+      const message = getReminderMessage(relationship);
+      expect(message).toContain('today');
+    });
+    
+    it('handles interaction from yesterday', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: yesterday.toISOString()
+      };
+      
+      const message = getReminderMessage(relationship);
+      expect(message).toContain('yesterday');
+    });
+    
+    it('handles different connection score ranges', () => {
+      // Test different connection score ranges
+      const scoreRanges = [95, 85, 75, 65, 55, 45, 35, 25, 15, 5];
+      
+      for (const score of scoreRanges) {
+        const relationship: Relationship = {
+          ...baseRelationship,
+          connectionScore: score
+        };
+        
+        const message = getReminderMessage(relationship);
+        // Should contain some form of assessment based on score
+        if (score >= 80) {
+          expect(message).toContain('strong');
+        } else if (score >= 60) {
+          expect(message).toContain('good');
+        } else {
+          expect(message).toContain('strengthen');
+        }
+      }
+    });
+    
+    it('handles no lastInteraction', () => {
+      const relationship: Relationship = {
+        ...baseRelationship,
+        lastInteraction: undefined
+      };
+      
+      const message = getReminderMessage(relationship);
+      expect(message).not.toContain('undefined');
+      expect(message).toContain(relationship.name);
+    });
+    
+    it('handles relationships with empty tags', () => {
+      const relationship: Relationship = {
+        ...baseRelationship,
+        tags: []
+      };
+      
+      const message = getReminderMessage(relationship);
+      expect(message).toContain(relationship.name);
+    });
   });
-}); 
+});
