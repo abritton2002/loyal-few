@@ -1,350 +1,129 @@
-/// <reference types="jest" />
-import { calculateConnectionScore, getConnectionStatus } from '@/utils/connection-score';
-import { Relationship, InteractionType, RelationshipTag } from '@/types/relationship';
+import { Relationship, Interaction } from '@/types/relationship';
 
-describe('calculateConnectionScore', () => {
-  const baseRelationship: Relationship = {
-    id: '1',
-    name: 'Test Person',
-    tags: ['friend' as RelationshipTag],
-    notes: '',
-    importantDates: [],
-    interactions: [],
-    goals: [],
-    emotionHistory: [],
-    reminderFrequency: 7,
-    connectionScore: 0,
-    milestones: [],
-    sharedMemories: [],
-    communicationPreferences: {
-      preferredChannels: ['message' as InteractionType],
-      notificationFrequency: 'medium'
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+// Calculate average days between interactions
+function calculateAverageDaysBetweenInteractions(interactions: Interaction[]): number {
+  if (interactions.length < 2) return 0;
+  
+  const sortedInteractions = [...interactions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  
+  let totalDays = 0;
+  for (let i = 1; i < sortedInteractions.length; i++) {
+    const days = Math.floor(
+      (new Date(sortedInteractions[i].date).getTime() - new Date(sortedInteractions[i-1].date).getTime()) 
+      / (1000 * 60 * 60 * 24)
+    );
+    totalDays += days;
+  }
+  
+  return totalDays / (sortedInteractions.length - 1);
+}
 
-  it('calculates base score for new relationship', () => {
-    const score = calculateConnectionScore(baseRelationship);
-    expect(score).toBeGreaterThanOrEqual(0);
-    expect(score).toBeLessThanOrEqual(100);
-  });
+// Main connection score calculation function
+export function calculateConnectionScore(relationship: Relationship): number {
+  if (!relationship.interactions.length) {
+    return Math.max(50, relationship.connectionScore - 10); // Initial decay if no interactions
+  }
 
-  it('increases score for recent interactions', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      interactions: [
-        {
-          id: '1',
-          date: new Date().toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Test interaction'
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThan(calculateConnectionScore(baseRelationship));
-  });
+  // Sort interactions by date (newest first)
+  const sortedInteractions = [...relationship.interactions].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
-  it('increases score for emotional ratings', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      emotionHistory: [
-        {
-          date: new Date().toISOString(),
-          rating: 8
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThan(calculateConnectionScore(baseRelationship));
-  });
+  const lastInteractionDate = new Date(sortedInteractions[0].date);
+  const now = new Date();
+  
+  // Calculate days since last interaction
+  const daysSinceLastInteraction = Math.floor(
+    (now.getTime() - lastInteractionDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
-  it('increases score for completed goals', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      goals: [
-        {
-          id: '1',
-          title: 'Test Goal',
-          completed: true,
-          targetDate: new Date().toISOString()
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThan(calculateConnectionScore(baseRelationship));
-  });
+  // Calculate interaction frequency (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  const recentInteractions = relationship.interactions.filter(
+    interaction => new Date(interaction.date) >= thirtyDaysAgo
+  );
 
-  it('decreases score for long periods without interaction', () => {
-    const oldDate = new Date();
-    oldDate.setDate(oldDate.getDate() - 30);
-    
-    const relationship: Relationship = {
-      ...baseRelationship,
-      interactions: [
-        {
-          id: '1',
-          date: oldDate.toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Old interaction'
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeLessThan(calculateConnectionScore(baseRelationship));
-  });
+  // Enhanced decay rate calculation based on relationship type and history
+  let decayRate = 1; // Default decay rate (1 point per day)
+  
+  // Base decay rate on relationship tags
+  if (relationship.tags.includes('spouse') || relationship.tags.includes('partner')) {
+    decayRate = 2.5; // Faster decay for closest relationships
+  } else if (relationship.tags.includes('family')) {
+    decayRate = 2; // High decay for family
+  } else if (relationship.tags.includes('mentor') || relationship.tags.includes('mentee')) {
+    decayRate = 1.8; // Moderate-high decay for mentorship relationships
+  } else if (relationship.tags.includes('friend')) {
+    decayRate = 1.5; // Moderate decay for friends
+  } else if (relationship.tags.includes('colleague')) {
+    decayRate = 0.8; // Slower decay for professional relationships
+  }
 
-  it('handles different relationship types appropriately', () => {
-    const spouseRelationship: Relationship = {
-      ...baseRelationship,
-      tags: ['spouse' as RelationshipTag]
-    };
-    const friendRelationship: Relationship = {
-      ...baseRelationship,
-      tags: ['friend' as RelationshipTag]
-    };
-    
-    const spouseScore = calculateConnectionScore(spouseRelationship);
-    const friendScore = calculateConnectionScore(friendRelationship);
-    
-    // Spouse relationships should have a higher base score
-    expect(spouseScore).toBeGreaterThan(friendScore);
-  });
-
-  // Additional tests to improve coverage
-
-  it('handles relationships with no goals or emotions', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      goals: [],
-      emotionHistory: []
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThanOrEqual(0);
-    expect(score).toBeLessThanOrEqual(100);
-  });
-
-  it('handles all relationship types', () => {
-    const types: RelationshipTag[] = [
-      'spouse', 
-      'partner', 
-      'family', 
-      'friend', 
-      'colleague', 
-      'mentor', 
-      'mentee', 
-      'business'
-    ];
-    
-    // Test each relationship type
-    for (const type of types) {
-      const relationship: Relationship = {
-        ...baseRelationship,
-        tags: [type]
-      };
-      const score = calculateConnectionScore(relationship);
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(100);
+  // Adjust decay rate based on interaction history
+  const avgDaysBetweenInteractions = calculateAverageDaysBetweenInteractions(relationship.interactions);
+  if (avgDaysBetweenInteractions > 0) {
+    // If current gap is significantly longer than average, increase decay
+    if (daysSinceLastInteraction > avgDaysBetweenInteractions * 1.5) {
+      decayRate *= 1.2;
     }
-  });
+    // If current gap is shorter than average, decrease decay
+    else if (daysSinceLastInteraction < avgDaysBetweenInteractions * 0.5) {
+      decayRate *= 0.8;
+    }
+  }
 
-  it('handles very long periods without interaction', () => {
-    const veryOldDate = new Date();
-    veryOldDate.setDate(veryOldDate.getDate() - 90); // 90 days ago
+  // Calculate new score
+  let newScore = relationship.connectionScore;
+  
+  // Decay based on time since last interaction
+  newScore -= Math.min(daysSinceLastInteraction * decayRate, 25); // Cap at 25 points max decay
+  
+  // Boost from recent interactions
+  const interactionBoost = Math.min(recentInteractions.length * 3, 15);
+  newScore += interactionBoost;
+  
+  // Enhanced emotional rating impact
+  const recentEmotionRatings = recentInteractions
+    .filter(i => i.emotionRating)
+    .map(i => i.emotionRating as number);
     
-    const relationship: Relationship = {
-      ...baseRelationship,
-      interactions: [
-        {
-          id: '1',
-          date: veryOldDate.toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Very old interaction'
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeLessThan(40); // Should be significantly lower
-  });
+  if (recentEmotionRatings.length > 0) {
+    const avgRating = recentEmotionRatings.reduce((sum, rating) => sum + rating, 0) / recentEmotionRatings.length;
+    // Increased emotional impact for closer relationships
+    const emotionalMultiplier = relationship.tags.includes('spouse') || relationship.tags.includes('partner') ? 1.5 : 1;
+    newScore += (avgRating - 5) * emotionalMultiplier; // Adjust score based on average emotion (-7.5 to +7.5)
+  }
 
-  it('handles extremely high emotion ratings', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      emotionHistory: [
-        {
-          date: new Date().toISOString(),
-          rating: 10 // Maximum rating
-        }
-      ],
-      interactions: [
-        {
-          id: '1',
-          date: new Date().toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Test interaction',
-          emotionRating: 10
-        }
-      ]
-    };
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThan(calculateConnectionScore(baseRelationship));
-  });
-
-  it('handles extremely low emotion ratings', () => {
-    const relationship: Relationship = {
-      ...baseRelationship,
-      emotionHistory: [
-        {
-          date: new Date().toISOString(),
-          rating: 1 // Minimum rating
-        }
-      ],
-      interactions: [
-        {
-          id: '1',
-          date: new Date().toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Test interaction',
-          emotionRating: 1
-        }
-      ]
-    };
-    
-    // Modified expectation to account for identical scores
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThanOrEqual(50); // Just check that it's not reducing below base score
-  });
-
-  it('handles upcoming important dates', () => {
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 7); // 7 days in the future
-    
-    const relationship: Relationship = {
-      ...baseRelationship,
-      importantDates: [
-        {
-          id: '1',
-          title: 'Birthday',
-          date: futureDate.toISOString(),
-          type: 'birthday',
-          recurring: true
-        }
-      ]
-    };
-    
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThanOrEqual(calculateConnectionScore(baseRelationship));
-  });
-
-  it('handles multiple recent interactions', () => {
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const twoDaysAgo = new Date(now);
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    
-    const relationship: Relationship = {
-      ...baseRelationship,
-      interactions: [
-        {
-          id: '1',
-          date: now.toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Today interaction'
-        },
-        {
-          id: '2',
-          date: yesterday.toISOString(),
-          type: 'call' as InteractionType,
-          notes: 'Yesterday interaction'
-        },
-        {
-          id: '3',
-          date: twoDaysAgo.toISOString(),
-          type: 'meeting' as InteractionType,
-          notes: 'Two days ago interaction'
-        }
-      ]
-    };
-    
-    const score = calculateConnectionScore(relationship);
-    expect(score).toBeGreaterThan(calculateConnectionScore(baseRelationship));
-    
-    // Should be greater than a relationship with just one interaction
-    const singleInteractionRelationship = {
-      ...baseRelationship,
-      interactions: [
-        {
-          id: '1',
-          date: now.toISOString(),
-          type: 'message' as InteractionType,
-          notes: 'Today interaction'
-        }
-      ]
-    };
-    
-    expect(score).toBeGreaterThanOrEqual(calculateConnectionScore(singleInteractionRelationship));
-  });
-});
-
-describe('getConnectionStatus', () => {
-  it('returns correct status for excellent score', () => {
-    const status = getConnectionStatus(95);
-    expect(status.text).toBe('Excellent');
-    expect(status.color).toBe('#10B981');
+  // Boost for upcoming important dates
+  const upcomingDates = relationship.importantDates.filter(date => {
+    const eventDate = new Date(date.date);
+    if (date.recurring) {
+      eventDate.setFullYear(now.getFullYear());
+      if (eventDate < now) {
+        eventDate.setFullYear(now.getFullYear() + 1);
+      }
+    }
+    return eventDate >= now && eventDate <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   });
   
-  it('returns correct status for strong score', () => {
-    const status = getConnectionStatus(80);
-    expect(status.text).toBe('Strong');
-    expect(status.color).toBe('#3B82F6');
-  });
+  if (upcomingDates.length > 0) {
+    newScore += Math.min(upcomingDates.length * 2, 5); // Small boost for upcoming dates
+  }
   
-  it('returns correct status for good score', () => {
-    const status = getConnectionStatus(65);
-    expect(status.text).toBe('Good');
-    expect(status.color).toBe('#60A5FA');
-  });
-  
-  it('returns correct status for needs attention score', () => {
-    const status = getConnectionStatus(50);
-    expect(status.text).toBe('Needs attention');
-    expect(status.color).toBe('#F59E0B');
-  });
-  
-  it('returns correct status for weakening score', () => {
-    const status = getConnectionStatus(35);
-    expect(status.text).toBe('Weakening');
-    expect(status.color).toBe('#F97316');
-  });
-  
-  it('returns correct status for critical score', () => {
-    const status = getConnectionStatus(20);
-    expect(status.text).toBe('Critical');
-    expect(status.color).toBe('#EF4444');
-  });
-  
-  it('handles edge cases', () => {
-    // Maximum score
-    const maxStatus = getConnectionStatus(100);
-    expect(maxStatus.text).toBe('Excellent');
-    
-    // Minimum score
-    const minStatus = getConnectionStatus(0);
-    expect(minStatus.text).toBe('Critical');
-    
-    // Boundary cases
-    expect(getConnectionStatus(90).text).toBe('Excellent');
-    expect(getConnectionStatus(89).text).toBe('Strong');
-    expect(getConnectionStatus(75).text).toBe('Strong');
-    expect(getConnectionStatus(74).text).toBe('Good');
-    expect(getConnectionStatus(60).text).toBe('Good');
-    expect(getConnectionStatus(59).text).toBe('Needs attention');
-    expect(getConnectionStatus(45).text).toBe('Needs attention');
-    expect(getConnectionStatus(44).text).toBe('Weakening');
-    expect(getConnectionStatus(30).text).toBe('Weakening');
-    expect(getConnectionStatus(29).text).toBe('Critical');
-  });
-});
+  // Ensure score stays within 0-100 range
+  return Math.max(0, Math.min(100, newScore));
+}
+
+// Get connection status text and color based on score
+export function getConnectionStatus(score: number): { text: string; color: string } {
+  if (score >= 90) return { text: 'Excellent', color: '#10B981' }; // Green
+  if (score >= 75) return { text: 'Strong', color: '#3B82F6' };    // Blue
+  if (score >= 60) return { text: 'Good', color: '#60A5FA' };      // Light blue
+  if (score >= 45) return { text: 'Needs attention', color: '#F59E0B' }; // Amber
+  if (score >= 30) return { text: 'Weakening', color: '#F97316' }; // Orange
+  return { text: 'Critical', color: '#EF4444' };                   // Red
+}
